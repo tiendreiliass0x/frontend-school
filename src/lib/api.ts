@@ -1,40 +1,241 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+// Custom error classes for better error handling
+export class ApiError extends Error {
+  public status: number
+  public code?: string
+  public details?: any
+
+  constructor(message: string, status: number, code?: string, details?: any) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+    this.details = details
+  }
+}
+
+export class NetworkError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'NetworkError'
+  }
+}
+
+export class ValidationError extends Error {
+  public errors: Record<string, string>
+
+  constructor(message: string, errors: Record<string, string>) {
+    super(message)
+    this.name = 'ValidationError'
+    this.errors = errors
+  }
+}
+
 interface ApiOptions extends RequestInit {
   token?: string
+  skipRetry?: boolean
+  timeout?: number
+}
+
+interface RequestInterceptor {
+  (config: ApiOptions & { url: string }): ApiOptions & { url: string }
+}
+
+interface ResponseInterceptor {
+  onSuccess?: (response: Response) => Response | Promise<Response>
+  onError?: (error: Error) => Error | Promise<Error>
 }
 
 class ApiClient {
   private baseUrl: string
+  private defaultTimeout: number = 30000
+  private requestInterceptors: RequestInterceptor[] = []
+  private responseInterceptors: ResponseInterceptor[] = []
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl
   }
 
+  // Add request interceptor
+  addRequestInterceptor(interceptor: RequestInterceptor) {
+    this.requestInterceptors.push(interceptor)
+  }
+
+  // Add response interceptor
+  addResponseInterceptor(interceptor: ResponseInterceptor) {
+    this.responseInterceptors.push(interceptor)
+  }
+
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  private async retryRequest<T>(
+    requestFn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> {
+    let lastError: Error
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await requestFn()
+      } catch (error) {
+        lastError = error as Error
+        
+        // Don't retry on client errors (4xx) or validation errors
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+          throw error
+        }
+
+        if (attempt === maxRetries) {
+          throw error
+        }
+
+        // Exponential backoff with jitter
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000
+        await this.delay(delay)
+      }
+    }
+
+    throw lastError!
+  }
+
+  private createTimeoutSignal(timeout: number): AbortSignal {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), timeout)
+    return controller.signal
+  }
+
   async request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-    const { token, ...fetchOptions } = options
+    const { 
+      token, 
+      skipRetry = false, 
+      timeout = this.defaultTimeout,
+      ...fetchOptions 
+    } = options
     
     const url = `${this.baseUrl}${endpoint}`
+    
+    // Apply request interceptors
+    let config = { url, ...options }
+    for (const interceptor of this.requestInterceptors) {
+      config = interceptor(config)
+    }
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      'Accept': 'application/json',
+      ...fetchOptions.headers,
     }
 
     if (token) {
       headers.Authorization = `Bearer ${token}`
     }
 
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-    })
+    // Create timeout signal
+    const timeoutSignal = this.createTimeoutSignal(timeout)
+    const combinedSignal = fetchOptions.signal 
+      ? this.combineSignals([fetchOptions.signal, timeoutSignal])
+      : timeoutSignal
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    const requestFn = async (): Promise<T> => {
+      try {
+        const response = await fetch(config.url, {
+          ...fetchOptions,
+          headers,
+          signal: combinedSignal,
+        })
+
+        // Apply response interceptors
+        let processedResponse = response
+        for (const interceptor of this.responseInterceptors) {
+          if (interceptor.onSuccess) {
+            processedResponse = await interceptor.onSuccess(processedResponse)
+          }
+        }
+
+        if (!processedResponse.ok) {
+          await this.handleErrorResponse(processedResponse)
+        }
+
+        // Handle empty responses
+        const contentType = processedResponse.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json')) {
+          return {} as T
+        }
+
+        return await processedResponse.json()
+      } catch (error) {
+        // Apply error interceptors
+        let processedError = error as Error
+        for (const interceptor of this.responseInterceptors) {
+          if (interceptor.onError) {
+            processedError = await interceptor.onError(processedError)
+          }
+        }
+
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          throw new NetworkError('Network error occurred. Please check your connection.')
+        }
+
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new NetworkError('Request timed out. Please try again.')
+        }
+
+        throw processedError
+      }
     }
 
-    return response.json()
+    if (skipRetry) {
+      return await requestFn()
+    } else {
+      return await this.retryRequest(requestFn)
+    }
+  }
+
+  private combineSignals(signals: AbortSignal[]): AbortSignal {
+    const controller = new AbortController()
+    
+    signals.forEach(signal => {
+      if (signal.aborted) {
+        controller.abort()
+      } else {
+        signal.addEventListener('abort', () => controller.abort())
+      }
+    })
+
+    return controller.signal
+  }
+
+  private async handleErrorResponse(response: Response): Promise<never> {
+    let errorData: any = {}
+    
+    try {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        errorData = await response.json()
+      } else {
+        errorData = { message: await response.text() }
+      }
+    } catch {
+      errorData = { message: 'Unknown error occurred' }
+    }
+
+    // Handle validation errors
+    if (response.status === 400 && errorData.details && Array.isArray(errorData.details)) {
+      const validationErrors: Record<string, string> = {}
+      errorData.details.forEach((detail: any) => {
+        if (detail.path && detail.message) {
+          validationErrors[detail.path.join('.')] = detail.message
+        }
+      })
+      throw new ValidationError(errorData.error || 'Validation failed', validationErrors)
+    }
+
+    const message = errorData.error || errorData.message || `HTTP error! status: ${response.status}`
+    throw new ApiError(message, response.status, errorData.code, errorData.details)
   }
 
   // Auth endpoints
