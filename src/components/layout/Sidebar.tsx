@@ -10,7 +10,8 @@ import {
   BuildingLibraryIcon,
   ChartBarIcon,
   Cog6ToothIcon,
-  ArrowLeftOnRectangleIcon
+  ArrowLeftOnRectangleIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Schools', href: '/dashboard/schools', icon: BuildingLibraryIcon, roles: ['super_admin'] },
   { name: 'Users', href: '/dashboard/users', icon: UserGroupIcon, roles: ['super_admin', 'school_admin'] },
   { name: 'Classes', href: '/dashboard/classes', icon: AcademicCapIcon, roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
+  { name: 'Assignments', href: '/dashboard/assignments', icon: DocumentTextIcon, roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
   { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, roles: ['super_admin', 'school_admin', 'teacher'] },
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon, roles: ['super_admin', 'school_admin'] },
 ]

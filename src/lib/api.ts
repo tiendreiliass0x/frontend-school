@@ -189,6 +189,82 @@ class ApiClient {
       token,
     })
   }
+
+  // Assignments endpoints
+  async getAssignments(token: string, params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString()
+    const endpoint = query ? `/api/assignments?${query}` : '/api/assignments'
+    return this.request(endpoint, { token })
+  }
+
+  async getAssignment(token: string, id: string) {
+    return this.request(`/api/assignments/${id}`, { token })
+  }
+
+  async createAssignment(token: string, assignmentData: any) {
+    return this.request('/api/assignments', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(assignmentData),
+    })
+  }
+
+  async updateAssignment(token: string, id: string, assignmentData: any) {
+    return this.request(`/api/assignments/${id}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(assignmentData),
+    })
+  }
+
+  async deleteAssignment(token: string, id: string) {
+    return this.request(`/api/assignments/${id}`, {
+      method: 'DELETE',
+      token,
+    })
+  }
+
+  // Grades endpoints
+  async getGrades(token: string, params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString()
+    const endpoint = query ? `/api/grades?${query}` : '/api/grades'
+    return this.request(endpoint, { token })
+  }
+
+  async getGrade(token: string, id: string) {
+    return this.request(`/api/grades/${id}`, { token })
+  }
+
+  async createGrade(token: string, gradeData: any) {
+    return this.request('/api/grades', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(gradeData),
+    })
+  }
+
+  async updateGrade(token: string, id: string, gradeData: any) {
+    return this.request(`/api/grades/${id}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(gradeData),
+    })
+  }
+
+  async bulkGradeAssignment(token: string, bulkGradeData: any) {
+    return this.request('/api/grades/bulk', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(bulkGradeData),
+    })
+  }
+
+  async deleteGrade(token: string, id: string) {
+    return this.request(`/api/grades/${id}`, {
+      method: 'DELETE',
+      token,
+    })
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL)

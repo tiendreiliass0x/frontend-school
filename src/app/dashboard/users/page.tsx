@@ -404,7 +404,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                   required
                   value={formData.firstName}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
                 />
               </div>
 
@@ -416,7 +416,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                   required
                   value={formData.lastName}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
                 />
               </div>
             </div>
@@ -429,7 +429,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
               />
             </div>
 
@@ -444,7 +444,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                 value={formData.password}
                 onChange={handleChange}
                 minLength={8}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
               />
             </div>
 
@@ -456,7 +456,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                   required
                   value={formData.role}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
                 >
                   {availableRoles.map(role => (
                     <option key={role} value={role}>
@@ -475,7 +475,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                     value={formData.schoolId}
                     onChange={handleChange}
                     disabled={currentUser.role === 'school_admin'}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 disabled:bg-gray-100"
+                    className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900 disabled:bg-gray-100"
                   >
                     <option value="">Select School</option>
                     {schools.map(school => (
@@ -496,7 +496,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
                 />
               </div>
 
@@ -507,7 +507,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                   name="dateOfBirth"
                   value={formData.dateOfBirth}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
                 />
               </div>
             </div>
@@ -519,7 +519,7 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2"
+                className="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border px-3 py-2 text-gray-900"
               />
             </div>
 
