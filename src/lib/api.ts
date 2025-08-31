@@ -127,6 +127,7 @@ class ApiClient {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
       ...fetchOptions.headers,
     }
 
