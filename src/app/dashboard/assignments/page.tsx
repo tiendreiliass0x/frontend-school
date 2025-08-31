@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarIcon, BookOpenIcon, ClockIcon } from '@heroicons/react/24/outline'
-import { format, isAfter, isBefore, parseISO } from 'date-fns'
+import { format, isAfter, parseISO } from 'date-fns'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 interface Assignment {
   id: string
@@ -131,7 +132,8 @@ export default function StudentAssignmentsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <ErrorBoundary>
+      <div className="p-8 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">My Assignments</h1>
@@ -213,7 +215,13 @@ export default function StudentAssignmentsPage() {
                     {assignment.dueDate && (
                       <div className="flex items-center text-sm text-gray-500">
                         <CalendarIcon className="h-4 w-4 mr-2" />
-                        Due: {format(parseISO(assignment.dueDate), 'MMM d, yyyy h:mm a')}
+                        Due: {(() => {
+                          try {
+                            return format(parseISO(assignment.dueDate), 'MMM d, yyyy h:mm a')
+                          } catch (e) {
+                            return format(new Date(assignment.dueDate), 'MMM d, yyyy')
+                          }
+                        })()}
                       </div>
                     )}
                     
@@ -263,6 +271,7 @@ export default function StudentAssignmentsPage() {
           })}
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }
