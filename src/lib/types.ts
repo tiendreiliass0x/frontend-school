@@ -124,3 +124,5 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   error: string
 }
+
+export type QueryParams = Record<string, string | number | boolean | undefined>

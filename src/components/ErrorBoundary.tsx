@@ -77,7 +77,7 @@ function DefaultErrorFallback({ error, resetError }: { error?: Error; resetError
         </CardHeader>
         <CardContent className="text-center">
           <p className="text-sm text-gray-500 mb-4">
-            We're sorry, but something unexpected happened. Please try again.
+            We’re sorry, but something unexpected happened. Please try again.
           </p>
           
           {process.env.NODE_ENV === 'development' && error && (
