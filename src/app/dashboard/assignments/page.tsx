@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,6 +26,7 @@ interface Assignment {
 }
 
 interface Grade {
+  assignmentId: string
   id: string
   points: number | null
   feedback: string | null
@@ -42,16 +43,7 @@ export default function StudentAssignmentsPage() {
   const [filter, setFilter] = useState('all') // all, upcoming, overdue, completed
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    if (token) {
-      fetchAssignments()
-      if (user?.role === 'student') {
-        fetchGrades()
-      }
-    }
-  }, [token, user])
-
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       setLoading(true)
       const response = await apiClient.getAssignments(token!)
@@ -62,20 +54,29 @@ export default function StudentAssignmentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token])
 
-  const fetchGrades = async () => {
+  const fetchGrades = useCallback(async () => {
     try {
       const response = await apiClient.getGrades(token!)
       const gradesMap: Record<string, Grade> = {}
-      response.grades?.forEach((grade: any) => {
+      response.grades?.forEach((grade: Grade) => {
         gradesMap[grade.assignmentId] = grade
       })
       setGrades(gradesMap)
     } catch (error) {
       console.error('Failed to fetch grades:', error)
     }
-  }
+  }, [token])
+
+  useEffect(() => {
+    if (token) {
+      fetchAssignments()
+      if (user?.role === 'student') {
+        fetchGrades()
+      }
+    }
+  }, [token, user, fetchAssignments, fetchGrades])
 
   const getAssignmentStatus = (assignment: Assignment) => {
     const grade = grades[assignment.id]
@@ -124,7 +125,7 @@ export default function StudentAssignmentsPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <div className="flex items-center justify-center min-h-64">
+        <div className="flex items-center justify-center min-h-[16rem]">
           <div className="text-lg text-gray-600">Loading assignments...</div>
         </div>
       </div>
@@ -177,8 +178,8 @@ export default function StudentAssignmentsPage() {
             {assignments.length === 0 ? 'No assignments' : 'No matching assignments'}
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            {assignments.length === 0 
-              ? 'You don\'t have any assignments yet.' 
+            {assignments.length === 0
+              ? 'You don’t have any assignments yet.'
               : 'Try adjusting your search or filter.'}
           </p>
         </div>
@@ -218,7 +219,7 @@ export default function StudentAssignmentsPage() {
                         Due: {(() => {
                           try {
                             return format(parseISO(assignment.dueDate), 'MMM d, yyyy h:mm a')
-                          } catch (e) {
+                          } catch {
                             return format(new Date(assignment.dueDate), 'MMM d, yyyy')
                           }
                         })()}

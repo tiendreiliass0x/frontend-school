@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api'
 
@@ -16,22 +16,16 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (user && token) {
-      fetchStats()
-    }
-  }, [user, token])
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       if (user?.role === 'super_admin') {
         // Super admin can see all schools stats
-        const response = await apiClient.getSchools(token!)
+        await apiClient.getSchools(token!)
         // For now, just show basic user info
         setStats({ totalUsers: 0, usersByRole: {} })
       } else if (user?.schoolId) {
         // School-specific users get school stats
-        const response = await apiClient.getSchool(token!, user.schoolId)
+        await apiClient.getSchool(token!, user.schoolId)
         // For now, just show basic user info
         setStats({ totalUsers: 0, usersByRole: {} })
       }
@@ -40,7 +34,13 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, user])
+
+  useEffect(() => {
+    if (user && token) {
+      fetchStats()
+    }
+  }, [user, token, fetchStats])
 
   if (loading) {
     return (

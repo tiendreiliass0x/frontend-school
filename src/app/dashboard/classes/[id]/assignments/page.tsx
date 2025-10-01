@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
@@ -56,14 +56,7 @@ export default function ClassAssignmentsPage() {
   })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
-  useEffect(() => {
-    if (token && classId) {
-      fetchClassInfo()
-      fetchAssignments()
-    }
-  }, [token, classId])
-
-  const fetchClassInfo = async () => {
+  const fetchClassInfo = useCallback(async () => {
     try {
       const response = await apiClient.getClass(token!, classId as string)
       setClassInfo(response.class)
@@ -71,9 +64,9 @@ export default function ClassAssignmentsPage() {
       console.error('Failed to fetch class info:', error)
       setError('Failed to load class information')
     }
-  }
+  }, [token, classId])
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       setLoading(true)
       const response = await apiClient.getAssignments(token!, { classId: classId as string })
@@ -84,7 +77,14 @@ export default function ClassAssignmentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, classId])
+
+  useEffect(() => {
+    if (token && classId) {
+      fetchClassInfo()
+      fetchAssignments()
+    }
+  }, [token, classId, fetchClassInfo, fetchAssignments])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -110,8 +110,9 @@ export default function ClassAssignmentsPage() {
 
       fetchAssignments()
       handleCloseModal()
-    } catch (error: any) {
-      setError(error.message || 'Failed to save assignment')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save assignment'
+      setError(message)
     }
   }
 
@@ -121,8 +122,9 @@ export default function ClassAssignmentsPage() {
     try {
       await apiClient.deleteAssignment(token!, assignmentId)
       fetchAssignments()
-    } catch (error: any) {
-      setError(error.message || 'Failed to delete assignment')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete assignment'
+      setError(message)
     }
   }
 

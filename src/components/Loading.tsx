@@ -109,7 +109,7 @@ export function Loading({
 // Page level loading component
 export function PageLoading({ text = "Loading..." }: { text?: string }) {
   return (
-    <div className="min-h-64 flex items-center justify-center">
+    <div className="min-h-[16rem] flex items-center justify-center">
       <Loading size="lg" text={text} />
     </div>
   )

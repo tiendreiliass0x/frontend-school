@@ -3,8 +3,31 @@
 import { useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient, { ApiError, NetworkError, ValidationError } from '@/lib/api'
-import { useCache } from './useCache'
+import { useCache, useCacheInvalidation } from './useCache'
 import { toast } from 'react-hot-toast'
+import type { QueryParams } from '@/lib/types'
+
+type ErrorCategory =
+  | 'validation'
+  | 'auth'
+  | 'permission'
+  | 'notFound'
+  | 'conflict'
+  | 'rateLimit'
+  | 'server'
+  | 'network'
+  | 'error'
+
+export class CategorizedApiError extends Error {
+  constructor(
+    message: string,
+    public readonly category: ErrorCategory,
+    public readonly originalError: Error
+  ) {
+    super(message)
+    this.name = 'CategorizedApiError'
+  }
+}
 
 export interface UseApiOptions {
   enableCache?: boolean
@@ -70,7 +93,7 @@ export function useApi<T>(
 }
 
 // Specialized hooks for common operations
-export function useUsers(params?: Record<string, any>) {
+export function useUsers(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -81,7 +104,7 @@ export function useUsers(params?: Record<string, any>) {
   return useCache(`users-${JSON.stringify(params)}`, fetcher)
 }
 
-export function useClasses(params?: Record<string, any>) {
+export function useClasses(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -92,7 +115,7 @@ export function useClasses(params?: Record<string, any>) {
   return useCache(`classes-${JSON.stringify(params)}`, fetcher)
 }
 
-export function useAssignments(params?: Record<string, any>) {
+export function useAssignments(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -103,7 +126,7 @@ export function useAssignments(params?: Record<string, any>) {
   return useCache(`assignments-${JSON.stringify(params)}`, fetcher)
 }
 
-export function useGrades(params?: Record<string, any>) {
+export function useGrades(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -115,7 +138,7 @@ export function useGrades(params?: Record<string, any>) {
 }
 
 // Mutation hooks with optimistic updates
-export function useApiMutation<TData, TVariables = any>(
+export function useApiMutation<TData, TVariables = Record<string, unknown>>(
   mutationFn: (variables: TVariables) => Promise<TData>,
   options: {
     onSuccess?: (data: TData, variables: TVariables) => void
@@ -135,15 +158,14 @@ export function useApiMutation<TData, TVariables = any>(
     successMessage
   } = options
 
+  const { invalidatePattern } = useCacheInvalidation()
+
   const mutation = useCallback(async (variables: TVariables) => {
     try {
       const data = await mutationFn(variables)
-      
+
       // Invalidate cache patterns
-      invalidatePatterns.forEach(pattern => {
-        // This would need to be implemented in the cache hook
-        // globalCache.invalidatePattern(pattern)
-      })
+      invalidatePatterns.forEach(pattern => invalidatePattern(pattern))
 
       if (showSuccessToast) {
         toast.success(successMessage || 'Operation completed successfully')
@@ -156,13 +178,13 @@ export function useApiMutation<TData, TVariables = any>(
       onError?.(processedError, variables)
       throw processedError
     }
-  }, [mutationFn, onSuccess, onError, invalidatePatterns, showSuccessToast, showErrorToast, successMessage])
+  }, [mutationFn, onSuccess, onError, invalidatePatterns, showSuccessToast, showErrorToast, successMessage, invalidatePattern])
 
   return mutation
 }
 
 // Process and categorize API errors
-function processApiError(error: Error, showToast = true): Error {
+function processApiError(error: Error, showToast = true): CategorizedApiError {
   let message = error.message
   let category = 'error'
 
@@ -221,9 +243,5 @@ function processApiError(error: Error, showToast = true): Error {
   }
 
   // Add category to error for better handling
-  const processedError = new Error(message)
-  ;(processedError as any).category = category
-  ;(processedError as any).originalError = error
-
-  return processedError
+  return new CategorizedApiError(message, category, error)
 }
