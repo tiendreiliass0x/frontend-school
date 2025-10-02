@@ -44,7 +44,7 @@ const isErrorDetail = (value: unknown): value is ErrorDetail => {
 type SchoolsResponse = { schools: School[] }
 type UsersResponse = { users: User[] }
 type ClassesResponse = { classes: Class[] }
-type AssignmentsResponse = { assignments: Assignment[] }
+type AssignmentsResponse = { assignments: Assignment[]; grades?: Grade[] }
 type AssignmentWithGradesResponse = { assignment: Assignment; grades?: Grade[] }
 type GradesResponse = { grades: Grade[] }
 type SchoolResponse = { school: School }
@@ -153,7 +153,7 @@ class ApiClient {
         return await requestFn()
       } catch (error) {
         lastError = error as Error
-        
+
         // Don't retry on client errors (4xx) or validation errors
         if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
           throw error
@@ -179,15 +179,15 @@ class ApiClient {
   }
 
   async request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-    const { 
-      token, 
-      skipRetry = false, 
+    const {
+      token,
+      skipRetry = false,
       timeout = this.defaultTimeout,
-      ...fetchOptions 
+      ...fetchOptions
     } = options
-    
+
     const url = `${this.baseUrl}${endpoint}`
-    
+
     // Apply request interceptors
     let config = { url, ...options }
     for (const interceptor of this.requestInterceptors) {
@@ -207,7 +207,7 @@ class ApiClient {
 
     // Create timeout signal
     const timeoutSignal = this.createTimeoutSignal(timeout)
-    const combinedSignal = fetchOptions.signal 
+    const combinedSignal = fetchOptions.signal
       ? this.combineSignals([fetchOptions.signal, timeoutSignal])
       : timeoutSignal
 
@@ -268,7 +268,7 @@ class ApiClient {
 
   private combineSignals(signals: AbortSignal[]): AbortSignal {
     const controller = new AbortController()
-    
+
     signals.forEach(signal => {
       if (signal.aborted) {
         controller.abort()
