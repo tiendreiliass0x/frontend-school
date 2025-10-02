@@ -31,7 +31,7 @@ export default function UsersPage() {
       if (filters.schoolId) params.schoolId = filters.schoolId
 
       const response = await apiClient.getUsers(token!, params)
-      setUsers(response.users)
+      setUsers(response)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'Failed to fetch users')
     } finally {
@@ -42,7 +42,7 @@ export default function UsersPage() {
   const fetchSchools = useCallback(async () => {
     try {
       const response = await apiClient.getSchools(token!)
-      setSchools(response.schools)
+      setSchools(response)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       console.error('Failed to fetch schools:', message)

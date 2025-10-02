@@ -32,7 +32,7 @@ export default function ClassesPage() {
       if (filters.gradeLevel) params.gradeLevel = filters.gradeLevel
 
       const response = await apiClient.getClasses(token!, params)
-      setClasses(response.classes)
+      setClasses(response)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'Failed to fetch classes')
     } finally {
@@ -47,7 +47,7 @@ export default function ClassesPage() {
         params.schoolId = user.schoolId!
       }
       const response = await apiClient.getUsers(token!, params)
-      setTeachers(response.users || [])
+      setTeachers(response)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       console.error('Failed to fetch teachers:', message)

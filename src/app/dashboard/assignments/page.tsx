@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
+import type { Assignment, Grade } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -47,7 +48,7 @@ export default function StudentAssignmentsPage() {
     try {
       setLoading(true)
       const response = await apiClient.getAssignments(token!)
-      setAssignments(response.assignments || [])
+      setAssignments(response)
     } catch (error) {
       console.error('Failed to fetch assignments:', error)
       setError('Failed to load assignments')
@@ -60,7 +61,7 @@ export default function StudentAssignmentsPage() {
     try {
       const response = await apiClient.getGrades(token!)
       const gradesMap: Record<string, Grade> = {}
-      response.grades?.forEach((grade: Grade) => {
+      response.forEach((grade: Grade) => {
         gradesMap[grade.assignmentId] = grade
       })
       setGrades(gradesMap)
@@ -100,9 +101,10 @@ export default function StudentAssignmentsPage() {
   }
 
   const filteredAssignments = assignments.filter(assignment => {
-    const matchesSearch = search === '' || 
+    const className = assignment.className ?? ''
+    const matchesSearch = search === '' ||
       assignment.title.toLowerCase().includes(search.toLowerCase()) ||
-      assignment.className.toLowerCase().includes(search.toLowerCase())
+      className.toLowerCase().includes(search.toLowerCase())
     
     if (!matchesSearch) return false
     
@@ -188,7 +190,8 @@ export default function StudentAssignmentsPage() {
           {filteredAssignments.map((assignment) => {
             const status = getAssignmentStatus(assignment)
             const grade = grades[assignment.id]
-            
+            const className = assignment.className || 'Unassigned class'
+
             return (
               <Card key={assignment.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader className="space-y-2">
@@ -200,9 +203,9 @@ export default function StudentAssignmentsPage() {
                       {status.label}
                     </Badge>
                   </div>
-                  <p className="text-sm text-gray-600">{assignment.className}</p>
+                  <p className="text-sm text-gray-600">{className}</p>
                   <p className="text-xs text-gray-500">
-                    {assignment.teacherName} {assignment.teacherLastName}
+                    {assignment.teacherName || 'Unknown'} {assignment.teacherLastName || ''}
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">

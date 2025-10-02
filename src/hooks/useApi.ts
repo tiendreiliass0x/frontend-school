@@ -2,6 +2,12 @@
 
 import { useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import apiClient from '@/lib/api'
+import { useCache, useCacheInvalidation } from './useCache'
+import { toast } from 'react-hot-toast'
+import type { QueryParams } from '@/lib/types'
+import { processApiError } from '@/lib/processApiError'
+export { CategorizedApiError } from '@/lib/processApiError'
 import apiClient, { ApiError, NetworkError, ValidationError } from '@/lib/api'
 import { useCache, useCacheInvalidation } from './useCache'
 import { toast } from 'react-hot-toast'
@@ -63,7 +69,7 @@ export function useApi<T>(
     return response
   }, [endpoint, token, showSuccessToast, successMessage])
 
-  const cacheKey = `${endpoint}-${token}`
+  const cacheKey = JSON.stringify({ endpoint, token })
 
   const {
     data,
@@ -79,7 +85,9 @@ export function useApi<T>(
   })
 
   // Enhanced error handling
-  const processedError = error ? processApiError(error, showErrorToast) : null
+  const processedError = error
+    ? processApiError(error, { showToast: showErrorToast, notify: toast.error })
+    : null
 
   return {
     data,
@@ -137,7 +145,7 @@ export function useGrades(params?: QueryParams) {
   return useCache(`grades-${JSON.stringify(params)}`, fetcher)
 }
 
-// Mutation hooks with optimistic updates
+// Mutation hooks with toast feedback and cache invalidation
 export function useApiMutation<TData, TVariables = Record<string, unknown>>(
   mutationFn: (variables: TVariables) => Promise<TData>,
   options: {
@@ -174,7 +182,10 @@ export function useApiMutation<TData, TVariables = Record<string, unknown>>(
       onSuccess?.(data, variables)
       return data
     } catch (error) {
-      const processedError = processApiError(error as Error, showErrorToast)
+      const processedError = processApiError(error as Error, {
+        showToast: showErrorToast,
+        notify: toast.error
+      })
       onError?.(processedError, variables)
       throw processedError
     }

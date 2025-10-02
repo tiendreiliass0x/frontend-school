@@ -78,6 +78,9 @@ export interface Assignment {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  className?: string
+  teacherName?: string
+  teacherLastName?: string
 }
 
 export interface Grade {
@@ -91,6 +94,8 @@ export interface Grade {
   gradedBy?: string
   createdAt: string
   updatedAt: string
+  studentName?: string
+  studentLastName?: string
 }
 
 export interface Attendance {

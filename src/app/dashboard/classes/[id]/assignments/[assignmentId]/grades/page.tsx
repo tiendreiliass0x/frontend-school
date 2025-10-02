@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
+import type { Assignment, Grade } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,28 +17,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { CalendarIcon, UserIcon } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 
-interface Assignment {
-  id: string
-  title: string
-  description: string | null
-  dueDate: string | null
-  maxPoints: number
-  instructions: string | null
-  isActive: boolean
-  className: string
-}
-
-interface Grade {
-  gradeId: string | null
-  studentId: string
-  studentName: string
-  studentLastName: string
-  points: number | null
-  feedback: string | null
-  status: 'draft' | 'published'
-  gradedAt: string | null
-}
-
 interface BulkGradeData {
   studentId: string
   points: number | null
@@ -45,16 +24,24 @@ interface BulkGradeData {
   status: 'draft' | 'published'
 }
 
+type AssignmentSummary = Assignment & { className?: string }
+
+type GradeWithStudent = Grade & {
+  gradeId?: string | null
+  studentName: string
+  studentLastName: string
+}
+
 export default function AssignmentGradesPage() {
   const { assignmentId } = useParams()
   const { user, token } = useAuth()
-  const [assignment, setAssignment] = useState<Assignment | null>(null)
-  const [grades, setGrades] = useState<Grade[]>([])
+  const [assignment, setAssignment] = useState<AssignmentSummary | null>(null)
+  const [grades, setGrades] = useState<GradeWithStudent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [bulkGradeData, setBulkGradeData] = useState<Record<string, BulkGradeData>>({})
-  const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null)
+  const [selectedGrade, setSelectedGrade] = useState<GradeWithStudent | null>(null)
   const [isGradeModalOpen, setIsGradeModalOpen] = useState(false)
   const [gradeForm, setGradeForm] = useState({
     points: '',
@@ -68,10 +55,10 @@ export default function AssignmentGradesPage() {
       const response = await apiClient.getAssignment(token!, assignmentId as string)
       setAssignment(response.assignment)
       setGrades(response.grades || [])
-      
+
       // Initialize bulk grade data
       const initialBulkData: Record<string, BulkGradeData> = {}
-      response.grades?.forEach((grade: Grade) => {
+      response.grades?.forEach((grade: GradeWithStudent) => {
         initialBulkData[grade.studentId] = {
           studentId: grade.studentId,
           points: grade.points,
@@ -121,7 +108,7 @@ export default function AssignmentGradesPage() {
     }
   }
 
-  const handleIndividualGrade = (grade: Grade) => {
+  const handleIndividualGrade = (grade: GradeWithStudent) => {
     setSelectedGrade(grade)
     setGradeForm({
       points: grade.points?.toString() || '',

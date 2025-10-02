@@ -153,7 +153,7 @@ class ApiClient {
         return await requestFn()
       } catch (error) {
         lastError = error as Error
-        
+
         // Don't retry on client errors (4xx) or validation errors
         if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
           throw error
@@ -179,15 +179,15 @@ class ApiClient {
   }
 
   async request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-    const { 
-      token, 
-      skipRetry = false, 
+    const {
+      token,
+      skipRetry = false,
       timeout = this.defaultTimeout,
-      ...fetchOptions 
+      ...fetchOptions
     } = options
-    
+
     const url = `${this.baseUrl}${endpoint}`
-    
+
     // Apply request interceptors
     let config = { url, ...options }
     for (const interceptor of this.requestInterceptors) {
@@ -207,7 +207,7 @@ class ApiClient {
 
     // Create timeout signal
     const timeoutSignal = this.createTimeoutSignal(timeout)
-    const combinedSignal = fetchOptions.signal 
+    const combinedSignal = fetchOptions.signal
       ? this.combineSignals([fetchOptions.signal, timeoutSignal])
       : timeoutSignal
 
@@ -268,7 +268,7 @@ class ApiClient {
 
   private combineSignals(signals: AbortSignal[]): AbortSignal {
     const controller = new AbortController()
-    
+
     signals.forEach(signal => {
       if (signal.aborted) {
         controller.abort()
@@ -335,7 +335,8 @@ class ApiClient {
   }
 
   async getProfile(token: string): Promise<User> {
-    return this.request<User>('/api/auth/me', { token })
+    const { user } = await this.request<UserResponse>('/api/auth/me', { token })
+    return user
   }
 
   async changePassword(token: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
@@ -347,32 +348,36 @@ class ApiClient {
   }
 
   // Schools endpoints
-  async getSchools(token: string): Promise<SchoolsResponse> {
-    return this.request<SchoolsResponse>('/api/schools', { token })
+  async getSchools(token: string): Promise<School[]> {
+    const { schools } = await this.request<SchoolsResponse>('/api/schools', { token })
+    return schools
   }
 
   async getCurrentSchool(token: string): Promise<School> {
     return this.request<School>('/api/schools/current', { token })
   }
 
-  async getSchool(token: string, id: string): Promise<SchoolResponse> {
-    return this.request<SchoolResponse>(`/api/schools/${id}`, { token })
+  async getSchool(token: string, id: string): Promise<School> {
+    const { school } = await this.request<SchoolResponse>(`/api/schools/${id}`, { token })
+    return school
   }
 
-  async createSchool(token: string, schoolData: JsonRecord): Promise<SchoolResponse> {
-    return this.request<SchoolResponse>('/api/schools', {
+  async createSchool(token: string, schoolData: JsonRecord): Promise<School> {
+    const { school } = await this.request<SchoolResponse>('/api/schools', {
       method: 'POST',
       token,
       body: JSON.stringify(schoolData),
     })
+    return school
   }
 
-  async updateSchool(token: string, id: string, schoolData: JsonRecord): Promise<SchoolResponse> {
-    return this.request<SchoolResponse>(`/api/schools/${id}`, {
+  async updateSchool(token: string, id: string, schoolData: JsonRecord): Promise<School> {
+    const { school } = await this.request<SchoolResponse>(`/api/schools/${id}`, {
       method: 'PUT',
       token,
       body: JSON.stringify(schoolData),
     })
+    return school
   }
 
   async deleteSchool(token: string, id: string): Promise<void> {
@@ -383,30 +388,34 @@ class ApiClient {
   }
 
   // Users endpoints
-  async getUsers(token: string, params: QueryParams = {}): Promise<UsersResponse> {
+  async getUsers(token: string, params: QueryParams = {}): Promise<User[]> {
     const query = createQueryString(params)
     const endpoint = query ? `/api/users?${query}` : '/api/users'
-    return this.request<UsersResponse>(endpoint, { token })
+    const { users } = await this.request<UsersResponse>(endpoint, { token })
+    return users
   }
 
-  async getUser(token: string, id: string): Promise<UserResponse> {
-    return this.request<UserResponse>(`/api/users/${id}`, { token })
+  async getUser(token: string, id: string): Promise<User> {
+    const { user } = await this.request<UserResponse>(`/api/users/${id}`, { token })
+    return user
   }
 
-  async createUser(token: string, userData: JsonRecord): Promise<UserResponse> {
-    return this.request<UserResponse>('/api/users', {
+  async createUser(token: string, userData: JsonRecord): Promise<User> {
+    const { user } = await this.request<UserResponse>('/api/users', {
       method: 'POST',
       token,
       body: JSON.stringify(userData),
     })
+    return user
   }
 
-  async updateUser(token: string, id: string, userData: JsonRecord): Promise<UserResponse> {
-    return this.request<UserResponse>(`/api/users/${id}`, {
+  async updateUser(token: string, id: string, userData: JsonRecord): Promise<User> {
+    const { user } = await this.request<UserResponse>(`/api/users/${id}`, {
       method: 'PUT',
       token,
       body: JSON.stringify(userData),
     })
+    return user
   }
 
   async deactivateUser(token: string, id: string): Promise<void> {
@@ -424,30 +433,34 @@ class ApiClient {
   }
 
   // Classes endpoints
-  async getClasses(token: string, params: QueryParams = {}): Promise<ClassesResponse> {
+  async getClasses(token: string, params: QueryParams = {}): Promise<Class[]> {
     const query = createQueryString(params)
     const endpoint = query ? `/api/classes?${query}` : '/api/classes'
-    return this.request<ClassesResponse>(endpoint, { token })
+    const { classes } = await this.request<ClassesResponse>(endpoint, { token })
+    return classes
   }
 
-  async getClass(token: string, id: string): Promise<ClassResponse> {
-    return this.request<ClassResponse>(`/api/classes/${id}`, { token })
+  async getClass(token: string, id: string): Promise<Class> {
+    const { class: classData } = await this.request<ClassResponse>(`/api/classes/${id}`, { token })
+    return classData
   }
 
-  async createClass(token: string, classData: JsonRecord): Promise<ClassResponse> {
-    return this.request<ClassResponse>('/api/classes', {
+  async createClass(token: string, classData: JsonRecord): Promise<Class> {
+    const { class: createdClass } = await this.request<ClassResponse>('/api/classes', {
       method: 'POST',
       token,
       body: JSON.stringify(classData),
     })
+    return createdClass
   }
 
-  async updateClass(token: string, id: string, classData: JsonRecord): Promise<ClassResponse> {
-    return this.request<ClassResponse>(`/api/classes/${id}`, {
+  async updateClass(token: string, id: string, classData: JsonRecord): Promise<Class> {
+    const { class: updatedClass } = await this.request<ClassResponse>(`/api/classes/${id}`, {
       method: 'PUT',
       token,
       body: JSON.stringify(classData),
     })
+    return updatedClass
   }
 
   async deleteClass(token: string, id: string): Promise<void> {
@@ -473,30 +486,33 @@ class ApiClient {
   }
 
   // Assignments endpoints
-  async getAssignments(token: string, params: QueryParams = {}): Promise<AssignmentsResponse> {
+  async getAssignments(token: string, params: QueryParams = {}): Promise<Assignment[]> {
     const query = createQueryString(params)
     const endpoint = query ? `/api/assignments?${query}` : '/api/assignments'
-    return this.request<AssignmentsResponse>(endpoint, { token })
+    const { assignments } = await this.request<AssignmentsResponse>(endpoint, { token })
+    return assignments
   }
 
   async getAssignment(token: string, id: string): Promise<AssignmentWithGradesResponse> {
     return this.request<AssignmentWithGradesResponse>(`/api/assignments/${id}`, { token })
   }
 
-  async createAssignment(token: string, assignmentData: JsonRecord): Promise<AssignmentResponse> {
-    return this.request<AssignmentResponse>('/api/assignments', {
+  async createAssignment(token: string, assignmentData: JsonRecord): Promise<Assignment> {
+    const { assignment } = await this.request<AssignmentResponse>('/api/assignments', {
       method: 'POST',
       token,
       body: JSON.stringify(assignmentData),
     })
+    return assignment
   }
 
-  async updateAssignment(token: string, id: string, assignmentData: JsonRecord): Promise<AssignmentResponse> {
-    return this.request<AssignmentResponse>(`/api/assignments/${id}`, {
+  async updateAssignment(token: string, id: string, assignmentData: JsonRecord): Promise<Assignment> {
+    const { assignment } = await this.request<AssignmentResponse>(`/api/assignments/${id}`, {
       method: 'PUT',
       token,
       body: JSON.stringify(assignmentData),
     })
+    return assignment
   }
 
   async deleteAssignment(token: string, id: string): Promise<void> {
@@ -507,30 +523,34 @@ class ApiClient {
   }
 
   // Grades endpoints
-  async getGrades(token: string, params: QueryParams = {}): Promise<GradesResponse> {
+  async getGrades(token: string, params: QueryParams = {}): Promise<Grade[]> {
     const query = createQueryString(params)
     const endpoint = query ? `/api/grades?${query}` : '/api/grades'
-    return this.request<GradesResponse>(endpoint, { token })
+    const { grades } = await this.request<GradesResponse>(endpoint, { token })
+    return grades
   }
 
-  async getGrade(token: string, id: string): Promise<GradeResponse> {
-    return this.request<GradeResponse>(`/api/grades/${id}`, { token })
+  async getGrade(token: string, id: string): Promise<Grade> {
+    const { grade } = await this.request<GradeResponse>(`/api/grades/${id}`, { token })
+    return grade
   }
 
-  async createGrade(token: string, gradeData: JsonRecord): Promise<GradeResponse> {
-    return this.request<GradeResponse>('/api/grades', {
+  async createGrade(token: string, gradeData: JsonRecord): Promise<Grade> {
+    const { grade } = await this.request<GradeResponse>('/api/grades', {
       method: 'POST',
       token,
       body: JSON.stringify(gradeData),
     })
+    return grade
   }
 
-  async updateGrade(token: string, id: string, gradeData: JsonRecord): Promise<GradeResponse> {
-    return this.request<GradeResponse>(`/api/grades/${id}`, {
+  async updateGrade(token: string, id: string, gradeData: JsonRecord): Promise<Grade> {
+    const { grade } = await this.request<GradeResponse>(`/api/grades/${id}`, {
       method: 'PUT',
       token,
       body: JSON.stringify(gradeData),
     })
+    return grade
   }
 
   async bulkGradeAssignment(token: string, bulkGradeData: JsonRecord): Promise<void> {

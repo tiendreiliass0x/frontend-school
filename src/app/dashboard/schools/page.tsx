@@ -18,7 +18,7 @@ export default function SchoolsPage() {
     try {
       setLoading(true)
       const response = await apiClient.getSchools(token!)
-      setSchools(response.schools)
+      setSchools(response)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'Failed to fetch schools')
     } finally {
