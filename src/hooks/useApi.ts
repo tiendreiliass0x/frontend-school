@@ -2,9 +2,12 @@
 
 import { useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import apiClient, { ApiError, NetworkError, ValidationError } from '@/lib/api'
-import { useCache } from './useCache'
+import apiClient from '@/lib/api'
+import { useCache, useCacheInvalidation } from './useCache'
 import { toast } from 'react-hot-toast'
+import type { QueryParams } from '@/lib/types'
+import { processApiError } from '@/lib/processApiError'
+export { CategorizedApiError } from '@/lib/processApiError'
 
 export interface UseApiOptions {
   enableCache?: boolean
@@ -40,7 +43,7 @@ export function useApi<T>(
     return response
   }, [endpoint, token, showSuccessToast, successMessage])
 
-  const cacheKey = `${endpoint}-${token}`
+  const cacheKey = JSON.stringify({ endpoint, token })
 
   const {
     data,
@@ -56,7 +59,9 @@ export function useApi<T>(
   })
 
   // Enhanced error handling
-  const processedError = error ? processApiError(error, showErrorToast) : null
+  const processedError = error
+    ? processApiError(error, { showToast: showErrorToast, notify: toast.error })
+    : null
 
   return {
     data,
@@ -70,7 +75,7 @@ export function useApi<T>(
 }
 
 // Specialized hooks for common operations
-export function useUsers(params?: Record<string, any>) {
+export function useUsers(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -81,7 +86,7 @@ export function useUsers(params?: Record<string, any>) {
   return useCache(`users-${JSON.stringify(params)}`, fetcher)
 }
 
-export function useClasses(params?: Record<string, any>) {
+export function useClasses(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -92,7 +97,7 @@ export function useClasses(params?: Record<string, any>) {
   return useCache(`classes-${JSON.stringify(params)}`, fetcher)
 }
 
-export function useAssignments(params?: Record<string, any>) {
+export function useAssignments(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -103,7 +108,7 @@ export function useAssignments(params?: Record<string, any>) {
   return useCache(`assignments-${JSON.stringify(params)}`, fetcher)
 }
 
-export function useGrades(params?: Record<string, any>) {
+export function useGrades(params?: QueryParams) {
   const { token } = useAuth()
   
   const fetcher = useCallback(async () => {
@@ -114,8 +119,8 @@ export function useGrades(params?: Record<string, any>) {
   return useCache(`grades-${JSON.stringify(params)}`, fetcher)
 }
 
-// Mutation hooks with optimistic updates
-export function useApiMutation<TData, TVariables = any>(
+// Mutation hooks with toast feedback and cache invalidation
+export function useApiMutation<TData, TVariables = Record<string, unknown>>(
   mutationFn: (variables: TVariables) => Promise<TData>,
   options: {
     onSuccess?: (data: TData, variables: TVariables) => void
@@ -135,15 +140,14 @@ export function useApiMutation<TData, TVariables = any>(
     successMessage
   } = options
 
+  const { invalidatePattern } = useCacheInvalidation()
+
   const mutation = useCallback(async (variables: TVariables) => {
     try {
       const data = await mutationFn(variables)
-      
+
       // Invalidate cache patterns
-      invalidatePatterns.forEach(pattern => {
-        // This would need to be implemented in the cache hook
-        // globalCache.invalidatePattern(pattern)
-      })
+      invalidatePatterns.forEach(pattern => invalidatePattern(pattern))
 
       if (showSuccessToast) {
         toast.success(successMessage || 'Operation completed successfully')
@@ -152,78 +156,14 @@ export function useApiMutation<TData, TVariables = any>(
       onSuccess?.(data, variables)
       return data
     } catch (error) {
-      const processedError = processApiError(error as Error, showErrorToast)
+      const processedError = processApiError(error as Error, {
+        showToast: showErrorToast,
+        notify: toast.error
+      })
       onError?.(processedError, variables)
       throw processedError
     }
-  }, [mutationFn, onSuccess, onError, invalidatePatterns, showSuccessToast, showErrorToast, successMessage])
+  }, [mutationFn, onSuccess, onError, invalidatePatterns, showSuccessToast, showErrorToast, successMessage, invalidatePattern])
 
   return mutation
-}
-
-// Process and categorize API errors
-function processApiError(error: Error, showToast = true): Error {
-  let message = error.message
-  let category = 'error'
-
-  if (error instanceof ValidationError) {
-    message = 'Please check your input and try again'
-    category = 'validation'
-    
-    if (showToast) {
-      // Show specific validation errors
-      Object.entries(error.errors).forEach(([field, fieldError]) => {
-        toast.error(`${field}: ${fieldError}`)
-      })
-    }
-  } else if (error instanceof ApiError) {
-    switch (error.status) {
-      case 401:
-        message = 'Please log in to continue'
-        category = 'auth'
-        break
-      case 403:
-        message = 'You do not have permission to perform this action'
-        category = 'permission'
-        break
-      case 404:
-        message = 'The requested resource was not found'
-        category = 'notFound'
-        break
-      case 409:
-        message = 'This resource already exists'
-        category = 'conflict'
-        break
-      case 429:
-        message = 'Too many requests. Please slow down'
-        category = 'rateLimit'
-        break
-      case 500:
-        message = 'Server error. Please try again later'
-        category = 'server'
-        break
-    }
-    
-    if (showToast) {
-      toast.error(message)
-    }
-  } else if (error instanceof NetworkError) {
-    message = 'Network error. Please check your connection'
-    category = 'network'
-    
-    if (showToast) {
-      toast.error(message)
-    }
-  } else {
-    if (showToast) {
-      toast.error(message)
-    }
-  }
-
-  // Add category to error for better handling
-  const processedError = new Error(message)
-  ;(processedError as any).category = category
-  ;(processedError as any).originalError = error
-
-  return processedError
 }

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { Class, User, AcademicYear } from '@/lib/types'
+import { Class, User, QueryParams } from '@/lib/types'
 import apiClient from '@/lib/api'
 import { PlusIcon, PencilIcon, TrashIcon, UserGroupIcon, BookOpenIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
@@ -23,42 +23,43 @@ export default function ClassesPage() {
     gradeLevel: '',
   })
 
+  const fetchClasses = useCallback(async () => {
+    try {
+      setLoading(true)
+      const params: QueryParams = {}
+      if (filters.search) params.search = filters.search
+      if (filters.teacherId) params.teacherId = filters.teacherId
+      if (filters.gradeLevel) params.gradeLevel = filters.gradeLevel
+
+      const response = await apiClient.getClasses(token!, params)
+      setClasses(response)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to fetch classes')
+    } finally {
+      setLoading(false)
+    }
+  }, [token, filters])
+
+  const fetchTeachers = useCallback(async () => {
+    try {
+      const params: QueryParams = { role: 'teacher' }
+      if (user?.role === 'school_admin') {
+        params.schoolId = user.schoolId!
+      }
+      const response = await apiClient.getUsers(token!, params)
+      setTeachers(response)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('Failed to fetch teachers:', message)
+    }
+  }, [token, user])
+
   useEffect(() => {
     if (token) {
       fetchClasses()
       fetchTeachers()
     }
-  }, [user, token, filters])
-
-  const fetchClasses = async () => {
-    try {
-      setLoading(true)
-      const params: any = {}
-      if (filters.search) params.search = filters.search
-      if (filters.teacherId) params.teacherId = filters.teacherId
-      if (filters.gradeLevel) params.gradeLevel = filters.gradeLevel
-      
-      const response = await apiClient.getClasses(token!, params)
-      setClasses(response.classes)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchTeachers = async () => {
-    try {
-      const params = { role: 'teacher' }
-      if (user?.role === 'school_admin') {
-        params.schoolId = user.schoolId!
-      }
-      const response = await apiClient.getUsers(token!, params)
-      setTeachers(response.users || [])
-    } catch (err: any) {
-      console.error('Failed to fetch teachers:', err.message)
-    }
-  }
+  }, [token, fetchClasses, fetchTeachers])
 
   const handleCreateClass = () => {
     setEditingClass(null)
@@ -76,8 +77,9 @@ export default function ClassesPage() {
     try {
       await apiClient.deleteClass(token!, classItem.id)
       setClasses(classes.filter(c => c.id !== classItem.id))
-    } catch (err: any) {
-      alert(`Error deleting class: ${err.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete class'
+      alert(`Error deleting class: ${message}`)
     }
   }
 
@@ -102,7 +104,7 @@ export default function ClassesPage() {
       <div className="p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="mt-2 text-gray-600">You don't have permission to access this page.</p>
+          <p className="mt-2 text-gray-600">You don’t have permission to access this page.</p>
         </div>
       </div>
     )
@@ -369,8 +371,8 @@ function ClassModal({ classItem: editingClass, teachers, currentUser, onClose, o
       }
 
       onSave(savedClass)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to save class')
     } finally {
       setLoading(false)
     }

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { User, School } from '@/lib/types'
+import { User, School, QueryParams } from '@/lib/types'
 import apiClient from '@/lib/api'
-import { PlusIcon, PencilIcon, TrashIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
 export default function UsersPage() {
   const { user, token } = useAuth()
@@ -22,6 +22,33 @@ export default function UsersPage() {
     schoolId: user?.role === 'super_admin' ? '' : user?.schoolId || '',
   })
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true)
+      const params: QueryParams = {}
+      if (filters.role) params.role = filters.role
+      if (filters.search) params.search = filters.search
+      if (filters.schoolId) params.schoolId = filters.schoolId
+
+      const response = await apiClient.getUsers(token!, params)
+      setUsers(response)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to fetch users')
+    } finally {
+      setLoading(false)
+    }
+  }, [token, filters])
+
+  const fetchSchools = useCallback(async () => {
+    try {
+      const response = await apiClient.getSchools(token!)
+      setSchools(response)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('Failed to fetch schools:', message)
+    }
+  }, [token])
+
   useEffect(() => {
     if (token) {
       fetchUsers()
@@ -29,33 +56,7 @@ export default function UsersPage() {
         fetchSchools()
       }
     }
-  }, [user, token, filters])
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true)
-      const params: any = {}
-      if (filters.role) params.role = filters.role
-      if (filters.search) params.search = filters.search
-      if (filters.schoolId) params.schoolId = filters.schoolId
-      
-      const response = await apiClient.getUsers(token!, params)
-      setUsers(response.users)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchSchools = async () => {
-    try {
-      const response = await apiClient.getSchools(token!)
-      setSchools(response.schools)
-    } catch (err: any) {
-      console.error('Failed to fetch schools:', err.message)
-    }
-  }
+  }, [token, user, fetchUsers, fetchSchools])
 
   const handleCreateUser = () => {
     setEditingUser(null)
@@ -73,8 +74,9 @@ export default function UsersPage() {
     try {
       await apiClient.deactivateUser(token!, targetUser.id)
       setUsers(users.map(u => u.id === targetUser.id ? { ...u, isActive: false } : u))
-    } catch (err: any) {
-      alert(`Error deactivating user: ${err.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to deactivate user'
+      alert(`Error deactivating user: ${message}`)
     }
   }
 
@@ -82,8 +84,9 @@ export default function UsersPage() {
     try {
       await apiClient.activateUser(token!, targetUser.id)
       setUsers(users.map(u => u.id === targetUser.id ? { ...u, isActive: true } : u))
-    } catch (err: any) {
-      alert(`Error activating user: ${err.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to activate user'
+      alert(`Error activating user: ${message}`)
     }
   }
 
@@ -108,7 +111,7 @@ export default function UsersPage() {
       <div className="p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="mt-2 text-gray-600">You don't have permission to access this page.</p>
+          <p className="mt-2 text-gray-600">You don’t have permission to access this page.</p>
         </div>
       </div>
     )
@@ -359,8 +362,8 @@ function UserModal({ user: editingUser, schools, currentUser, onClose, onSave }:
       }
 
       onSave(savedUser)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to save user')
     } finally {
       setLoading(false)
     }

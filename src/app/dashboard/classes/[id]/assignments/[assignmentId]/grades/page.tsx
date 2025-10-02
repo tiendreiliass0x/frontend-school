@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
+import type { Assignment, Grade } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,30 +14,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { CalendarIcon, UserIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { CalendarIcon, UserIcon } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
-
-interface Assignment {
-  id: string
-  title: string
-  description: string | null
-  dueDate: string | null
-  maxPoints: number
-  instructions: string | null
-  isActive: boolean
-  className: string
-}
-
-interface Grade {
-  gradeId: string | null
-  studentId: string
-  studentName: string
-  studentLastName: string
-  points: number | null
-  feedback: string | null
-  status: 'draft' | 'published'
-  gradedAt: string | null
-}
 
 interface BulkGradeData {
   studentId: string
@@ -45,16 +24,24 @@ interface BulkGradeData {
   status: 'draft' | 'published'
 }
 
+type AssignmentSummary = Assignment & { className?: string }
+
+type GradeWithStudent = Grade & {
+  gradeId?: string | null
+  studentName: string
+  studentLastName: string
+}
+
 export default function AssignmentGradesPage() {
-  const { id: classId, assignmentId } = useParams()
+  const { assignmentId } = useParams()
   const { user, token } = useAuth()
-  const [assignment, setAssignment] = useState<Assignment | null>(null)
-  const [grades, setGrades] = useState<Grade[]>([])
+  const [assignment, setAssignment] = useState<AssignmentSummary | null>(null)
+  const [grades, setGrades] = useState<GradeWithStudent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [bulkGradeData, setBulkGradeData] = useState<Record<string, BulkGradeData>>({})
-  const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null)
+  const [selectedGrade, setSelectedGrade] = useState<GradeWithStudent | null>(null)
   const [isGradeModalOpen, setIsGradeModalOpen] = useState(false)
   const [gradeForm, setGradeForm] = useState({
     points: '',
@@ -62,22 +49,16 @@ export default function AssignmentGradesPage() {
     status: 'draft' as 'draft' | 'published'
   })
 
-  useEffect(() => {
-    if (token && assignmentId) {
-      fetchAssignmentWithGrades()
-    }
-  }, [token, assignmentId])
-
-  const fetchAssignmentWithGrades = async () => {
+  const fetchAssignmentWithGrades = useCallback(async () => {
     try {
       setLoading(true)
       const response = await apiClient.getAssignment(token!, assignmentId as string)
       setAssignment(response.assignment)
       setGrades(response.grades || [])
-      
+
       // Initialize bulk grade data
       const initialBulkData: Record<string, BulkGradeData> = {}
-      response.grades?.forEach((grade: Grade) => {
+      response.grades?.forEach((grade: GradeWithStudent) => {
         initialBulkData[grade.studentId] = {
           studentId: grade.studentId,
           points: grade.points,
@@ -92,7 +73,13 @@ export default function AssignmentGradesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, assignmentId])
+
+  useEffect(() => {
+    if (token && assignmentId) {
+      fetchAssignmentWithGrades()
+    }
+  }, [token, assignmentId, fetchAssignmentWithGrades])
 
   const handleBulkSave = async () => {
     try {
@@ -113,14 +100,15 @@ export default function AssignmentGradesPage() {
 
       fetchAssignmentWithGrades()
       setError('')
-    } catch (error: any) {
-      setError(error.message || 'Failed to save grades')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save grades'
+      setError(message)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleIndividualGrade = (grade: Grade) => {
+  const handleIndividualGrade = (grade: GradeWithStudent) => {
     setSelectedGrade(grade)
     setGradeForm({
       points: grade.points?.toString() || '',
@@ -147,14 +135,19 @@ export default function AssignmentGradesPage() {
       fetchAssignmentWithGrades()
       setIsGradeModalOpen(false)
       setSelectedGrade(null)
-    } catch (error: any) {
-      setError(error.message || 'Failed to save grade')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save grade'
+      setError(message)
     } finally {
       setSaving(false)
     }
   }
 
-  const updateBulkGradeData = (studentId: string, field: keyof BulkGradeData, value: any) => {
+  const updateBulkGradeData = (
+    studentId: string,
+    field: keyof BulkGradeData,
+    value: BulkGradeData[keyof BulkGradeData]
+  ) => {
     setBulkGradeData(prev => ({
       ...prev,
       [studentId]: {
@@ -180,8 +173,9 @@ export default function AssignmentGradesPage() {
       })
 
       fetchAssignmentWithGrades()
-    } catch (error: any) {
-      setError(error.message || 'Failed to publish grades')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to publish grades'
+      setError(message)
     } finally {
       setSaving(false)
     }
@@ -192,7 +186,7 @@ export default function AssignmentGradesPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <div className="flex items-center justify-center min-h-64">
+        <div className="flex items-center justify-center min-h-[16rem]">
           <div className="text-lg text-gray-600">Loading assignment...</div>
         </div>
       </div>
@@ -272,7 +266,7 @@ export default function AssignmentGradesPage() {
               <UserIcon className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No students found</h3>
               <p className="mt-1 text-sm text-gray-500">
-                No students are enrolled in this assignment's class.
+                No students are enrolled in this assignment’s class.
               </p>
             </div>
           ) : (

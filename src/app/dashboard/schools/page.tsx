@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { School } from '@/lib/types'
 import apiClient from '@/lib/api'
@@ -14,23 +14,23 @@ export default function SchoolsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingSchool, setEditingSchool] = useState<School | null>(null)
 
+  const fetchSchools = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await apiClient.getSchools(token!)
+      setSchools(response)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to fetch schools')
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
   useEffect(() => {
     if (user?.role === 'super_admin' && token) {
       fetchSchools()
     }
-  }, [user, token])
-
-  const fetchSchools = async () => {
-    try {
-      setLoading(true)
-      const response = await apiClient.getSchools(token!)
-      setSchools(response.schools)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [user, token, fetchSchools])
 
   const handleCreateSchool = () => {
     setEditingSchool(null)
@@ -48,8 +48,9 @@ export default function SchoolsPage() {
     try {
       await apiClient.deleteSchool(token!, school.id)
       setSchools(schools.filter(s => s.id !== school.id))
-    } catch (err: any) {
-      alert(`Error deleting school: ${err.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete school'
+      alert(`Error deleting school: ${message}`)
     }
   }
 
@@ -72,7 +73,7 @@ export default function SchoolsPage() {
       <div className="p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="mt-2 text-gray-600">You don't have permission to access this page.</p>
+          <p className="mt-2 text-gray-600">You don’t have permission to access this page.</p>
         </div>
       </div>
     )
@@ -247,8 +248,8 @@ function SchoolModal({ school, onClose, onSave }: SchoolModalProps) {
       }
 
       onSave(savedSchool)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to save school')
     } finally {
       setLoading(false)
     }

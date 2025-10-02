@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
+import type { Assignment, Class } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,33 +16,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { PlusIcon, CalendarIcon, BookOpenIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 
-interface Assignment {
-  id: string
-  title: string
-  description: string | null
-  dueDate: string | null
-  maxPoints: number
-  instructions: string | null
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-interface ClassInfo {
-  id: string
-  name: string
-  description: string | null
-  gradeLevel: string | null
-  teacherId: string
-  schoolId: string
-}
-
 export default function ClassAssignmentsPage() {
   const { id: classId } = useParams()
   const router = useRouter()
   const { user, token } = useAuth()
   const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
+  const [classInfo, setClassInfo] = useState<Class | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -56,35 +36,35 @@ export default function ClassAssignmentsPage() {
   })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
-  useEffect(() => {
-    if (token && classId) {
-      fetchClassInfo()
-      fetchAssignments()
-    }
-  }, [token, classId])
-
-  const fetchClassInfo = async () => {
+  const fetchClassInfo = useCallback(async () => {
     try {
       const response = await apiClient.getClass(token!, classId as string)
-      setClassInfo(response.class)
+      setClassInfo(response)
     } catch (error) {
       console.error('Failed to fetch class info:', error)
       setError('Failed to load class information')
     }
-  }
+  }, [token, classId])
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       setLoading(true)
       const response = await apiClient.getAssignments(token!, { classId: classId as string })
-      setAssignments(response.assignments || [])
+      setAssignments(response)
     } catch (error) {
       console.error('Failed to fetch assignments:', error)
       setError('Failed to load assignments')
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, classId])
+
+  useEffect(() => {
+    if (token && classId) {
+      fetchClassInfo()
+      fetchAssignments()
+    }
+  }, [token, classId, fetchClassInfo, fetchAssignments])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -110,8 +90,9 @@ export default function ClassAssignmentsPage() {
 
       fetchAssignments()
       handleCloseModal()
-    } catch (error: any) {
-      setError(error.message || 'Failed to save assignment')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save assignment'
+      setError(message)
     }
   }
 
@@ -121,8 +102,9 @@ export default function ClassAssignmentsPage() {
     try {
       await apiClient.deleteAssignment(token!, assignmentId)
       fetchAssignments()
-    } catch (error: any) {
-      setError(error.message || 'Failed to delete assignment')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete assignment'
+      setError(message)
     }
   }
 
@@ -158,7 +140,7 @@ export default function ClassAssignmentsPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <div className="flex items-center justify-center min-h-64">
+        <div className="flex items-center justify-center min-h-[16rem]">
           <div className="text-lg text-gray-600">Loading assignments...</div>
         </div>
       </div>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import apiClient from '@/lib/api'
+import type { Assignment, Grade } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -10,28 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CalendarIcon, BookOpenIcon, ClockIcon } from '@heroicons/react/24/outline'
 import { format, isAfter, parseISO } from 'date-fns'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-
-interface Assignment {
-  id: string
-  title: string
-  description: string | null
-  dueDate: string | null
-  maxPoints: number
-  instructions: string | null
-  isActive: boolean
-  createdAt: string
-  className: string
-  teacherName: string
-  teacherLastName: string
-}
-
-interface Grade {
-  id: string
-  points: number | null
-  feedback: string | null
-  status: 'draft' | 'published'
-  gradedAt: string | null
-}
 
 export default function StudentAssignmentsPage() {
   const { user, token } = useAuth()
@@ -42,6 +21,32 @@ export default function StudentAssignmentsPage() {
   const [filter, setFilter] = useState('all') // all, upcoming, overdue, completed
   const [search, setSearch] = useState('')
 
+  const fetchAssignments = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await apiClient.getAssignments(token!)
+      setAssignments(response)
+    } catch (error) {
+      console.error('Failed to fetch assignments:', error)
+      setError('Failed to load assignments')
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
+  const fetchGrades = useCallback(async () => {
+    try {
+      const response = await apiClient.getGrades(token!)
+      const gradesMap: Record<string, Grade> = {}
+      response.forEach((grade: Grade) => {
+        gradesMap[grade.assignmentId] = grade
+      })
+      setGrades(gradesMap)
+    } catch (error) {
+      console.error('Failed to fetch grades:', error)
+    }
+  }, [token])
+
   useEffect(() => {
     if (token) {
       fetchAssignments()
@@ -49,33 +54,7 @@ export default function StudentAssignmentsPage() {
         fetchGrades()
       }
     }
-  }, [token, user])
-
-  const fetchAssignments = async () => {
-    try {
-      setLoading(true)
-      const response = await apiClient.getAssignments(token!)
-      setAssignments(response.assignments || [])
-    } catch (error) {
-      console.error('Failed to fetch assignments:', error)
-      setError('Failed to load assignments')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchGrades = async () => {
-    try {
-      const response = await apiClient.getGrades(token!)
-      const gradesMap: Record<string, Grade> = {}
-      response.grades?.forEach((grade: any) => {
-        gradesMap[grade.assignmentId] = grade
-      })
-      setGrades(gradesMap)
-    } catch (error) {
-      console.error('Failed to fetch grades:', error)
-    }
-  }
+  }, [token, user, fetchAssignments, fetchGrades])
 
   const getAssignmentStatus = (assignment: Assignment) => {
     const grade = grades[assignment.id]
@@ -99,9 +78,10 @@ export default function StudentAssignmentsPage() {
   }
 
   const filteredAssignments = assignments.filter(assignment => {
-    const matchesSearch = search === '' || 
+    const className = assignment.className ?? ''
+    const matchesSearch = search === '' ||
       assignment.title.toLowerCase().includes(search.toLowerCase()) ||
-      assignment.className.toLowerCase().includes(search.toLowerCase())
+      className.toLowerCase().includes(search.toLowerCase())
     
     if (!matchesSearch) return false
     
@@ -124,7 +104,7 @@ export default function StudentAssignmentsPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <div className="flex items-center justify-center min-h-64">
+        <div className="flex items-center justify-center min-h-[16rem]">
           <div className="text-lg text-gray-600">Loading assignments...</div>
         </div>
       </div>
@@ -177,8 +157,8 @@ export default function StudentAssignmentsPage() {
             {assignments.length === 0 ? 'No assignments' : 'No matching assignments'}
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            {assignments.length === 0 
-              ? 'You don\'t have any assignments yet.' 
+            {assignments.length === 0
+              ? 'You don’t have any assignments yet.'
               : 'Try adjusting your search or filter.'}
           </p>
         </div>
@@ -187,7 +167,8 @@ export default function StudentAssignmentsPage() {
           {filteredAssignments.map((assignment) => {
             const status = getAssignmentStatus(assignment)
             const grade = grades[assignment.id]
-            
+            const className = assignment.className || 'Unassigned class'
+
             return (
               <Card key={assignment.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader className="space-y-2">
@@ -199,9 +180,9 @@ export default function StudentAssignmentsPage() {
                       {status.label}
                     </Badge>
                   </div>
-                  <p className="text-sm text-gray-600">{assignment.className}</p>
+                  <p className="text-sm text-gray-600">{className}</p>
                   <p className="text-xs text-gray-500">
-                    {assignment.teacherName} {assignment.teacherLastName}
+                    {assignment.teacherName || 'Unknown'} {assignment.teacherLastName || ''}
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -218,7 +199,7 @@ export default function StudentAssignmentsPage() {
                         Due: {(() => {
                           try {
                             return format(parseISO(assignment.dueDate), 'MMM d, yyyy h:mm a')
-                          } catch (e) {
+                          } catch {
                             return format(new Date(assignment.dueDate), 'MMM d, yyyy')
                           }
                         })()}

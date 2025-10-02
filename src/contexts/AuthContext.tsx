@@ -26,8 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(storedToken)
       // Verify token and get user data
       apiClient.getProfile(storedToken)
-        .then((response: { user: User }) => {
-          setUser(response.user)
+        .then((profile: User) => {
+          setUser(profile)
         })
         .catch(() => {
           // Token is invalid, remove it
