@@ -12,6 +12,29 @@ import { CalendarIcon, BookOpenIcon, ClockIcon } from '@heroicons/react/24/outli
 import { format, isAfter, parseISO } from 'date-fns'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
+interface Assignment {
+  id: string
+  title: string
+  description: string | null
+  dueDate: string | null
+  maxPoints: number
+  instructions: string | null
+  isActive: boolean
+  createdAt: string
+  className: string
+  teacherName: string
+  teacherLastName: string
+}
+
+interface Grade {
+  assignmentId: string
+  id: string
+  points: number | null
+  feedback: string | null
+  status: 'draft' | 'published'
+  gradedAt: string | null
+}
+
 export default function StudentAssignmentsPage() {
   const { user, token } = useAuth()
   const [assignments, setAssignments] = useState<Assignment[]>([])

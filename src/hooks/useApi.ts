@@ -8,6 +8,32 @@ import { toast } from 'react-hot-toast'
 import type { QueryParams } from '@/lib/types'
 import { processApiError } from '@/lib/processApiError'
 export { CategorizedApiError } from '@/lib/processApiError'
+import apiClient, { ApiError, NetworkError, ValidationError } from '@/lib/api'
+import { useCache, useCacheInvalidation } from './useCache'
+import { toast } from 'react-hot-toast'
+import type { QueryParams } from '@/lib/types'
+
+type ErrorCategory =
+  | 'validation'
+  | 'auth'
+  | 'permission'
+  | 'notFound'
+  | 'conflict'
+  | 'rateLimit'
+  | 'server'
+  | 'network'
+  | 'error'
+
+export class CategorizedApiError extends Error {
+  constructor(
+    message: string,
+    public readonly category: ErrorCategory,
+    public readonly originalError: Error
+  ) {
+    super(message)
+    this.name = 'CategorizedApiError'
+  }
+}
 
 export interface UseApiOptions {
   enableCache?: boolean
@@ -166,4 +192,67 @@ export function useApiMutation<TData, TVariables = Record<string, unknown>>(
   }, [mutationFn, onSuccess, onError, invalidatePatterns, showSuccessToast, showErrorToast, successMessage, invalidatePattern])
 
   return mutation
+}
+
+// Process and categorize API errors
+function processApiError(error: Error, showToast = true): CategorizedApiError {
+  let message = error.message
+  let category = 'error'
+
+  if (error instanceof ValidationError) {
+    message = 'Please check your input and try again'
+    category = 'validation'
+    
+    if (showToast) {
+      // Show specific validation errors
+      Object.entries(error.errors).forEach(([field, fieldError]) => {
+        toast.error(`${field}: ${fieldError}`)
+      })
+    }
+  } else if (error instanceof ApiError) {
+    switch (error.status) {
+      case 401:
+        message = 'Please log in to continue'
+        category = 'auth'
+        break
+      case 403:
+        message = 'You do not have permission to perform this action'
+        category = 'permission'
+        break
+      case 404:
+        message = 'The requested resource was not found'
+        category = 'notFound'
+        break
+      case 409:
+        message = 'This resource already exists'
+        category = 'conflict'
+        break
+      case 429:
+        message = 'Too many requests. Please slow down'
+        category = 'rateLimit'
+        break
+      case 500:
+        message = 'Server error. Please try again later'
+        category = 'server'
+        break
+    }
+    
+    if (showToast) {
+      toast.error(message)
+    }
+  } else if (error instanceof NetworkError) {
+    message = 'Network error. Please check your connection'
+    category = 'network'
+    
+    if (showToast) {
+      toast.error(message)
+    }
+  } else {
+    if (showToast) {
+      toast.error(message)
+    }
+  }
+
+  // Add category to error for better handling
+  return new CategorizedApiError(message, category, error)
 }
